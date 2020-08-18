@@ -1,0 +1,68 @@
+---
+
+- hosts: test-server
+
+  become: yes
+
+  tasks:
+
+  - name: Installs nginx web server
+
+    apt:
+
+      name: nginx
+
+      state: present
+
+      update_cache: true
+
+    notify:
+
+    - start nginx
+
+  - name: Delete default configuration
+    file:
+        path: "/etc/nginx/sites-enabled/default"
+        state: absent
+
+  - name: Create new configuration for API hosting
+    copy: 
+        dest: "/etc/nginx/sites-enabled/app.conf"
+        content: |
+          server {
+            server_name localhost;
+            listen 80 default_server;
+            location / {
+            root /home/ubuntu/project;
+            index index.html;
+            }
+          location /app {
+            rewrite ^/app/(.*) /$1 break;
+            proxy_pass http://127.0.0.1:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP localhost;
+            }
+           }
+   
+    notify: restart nginx   
+ 
+  - name: Host API
+    command: python /home/ubuntu/project/app/api.py
+
+  handlers:
+
+  - name: start nginx
+
+    service:
+
+      name: nginx
+
+      state: present
+
+  - name: restart nginx
+     
+    service:
+   
+     name=nginx
+   
+     state=restarted
